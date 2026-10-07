@@ -1,40 +1,52 @@
+import JuntosLogo from '@/components/juntos-logo';
 import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-function LogoMark() {
-  return (
-    <View style={styles.logoShell}>
-      <View style={[styles.person, styles.personLeft]} />
-      <View style={[styles.person, styles.personRight]} />
-      <View style={styles.heartWrap}>
-        <View style={styles.heart} />
-      </View>
-    </View>
-  );
-}
 
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.backgroundGlow} />
-      <View style={styles.content}>
-        <LogoMark />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <View style={styles.logoShell}>
+            <JuntosLogo />
+          </View>
 
-        <View style={styles.textWrap}>
-          <Text style={styles.eyebrow}>JUNTOS</Text>
-          <Text style={styles.title}>Acompañamiento humano, simple y cercano</Text>
-          <Text style={styles.subtitle}>
-            Solicita ayuda para citas médicas, paseos, compras y acompañamiento seguro.
-          </Text>
+          <View style={styles.textWrap}>
+            <Text style={styles.eyebrow}>JUNTOS</Text>
+            <Text style={styles.title}>Acompañamiento humano, simple y cercano</Text>
+            <Text style={styles.subtitle}>
+              Solicita ayuda para citas médicas, paseos, compras y acompañamiento seguro.
+            </Text>
+          </View>
+
+          <View style={styles.featureRow}>
+            <View style={styles.featureCard}>
+              <Text style={styles.featureIcon}>🩺</Text>
+              <Text style={styles.featureLabel}>Médico</Text>
+            </View>
+            <View style={styles.featureCard}>
+              <Text style={styles.featureIcon}>🏦</Text>
+              <Text style={styles.featureLabel}>Banco</Text>
+            </View>
+            <View style={styles.featureCard}>
+              <Text style={styles.featureIcon}>🛒</Text>
+              <Text style={styles.featureLabel}>Compras</Text>
+            </View>
+          </View>
+
+          <Link href="/main" asChild>
+            <Pressable style={styles.button}>
+              <Text style={styles.buttonText}>Iniciar</Text>
+            </Pressable>
+          </Link>
         </View>
-
-        <Link href="/main" asChild>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>Iniciar</Text>
-          </Pressable>
-        </Link>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -43,10 +55,15 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#05070B',
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 26,
     overflow: 'hidden',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 34,
+    paddingBottom: 72,
   },
   backgroundGlow: {
     position: 'absolute',
@@ -61,68 +78,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 30,
   },
+  scrollView: {
+    flex: 1,
+  },
   content: {
     width: '100%',
     maxWidth: 560,
     alignItems: 'center',
-    zIndex: 1,
   },
   logoShell: {
-    position: 'relative',
-    width: 350,
-    height: 260,
-    marginBottom: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  person: {
-    position: 'absolute',
-    borderRadius: 999,
-    borderWidth: 4,
-    borderColor: '#E44EEA',
-    shadowColor: '#1FA9F4',
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  personLeft: {
-    left: 28,
-    top: 20,
-    width: 140,
-    height: 140,
-    backgroundColor: '#1FA9F4',
-  },
-  personRight: {
-    right: 22,
-    top: 20,
-    width: 140,
-    height: 140,
-    backgroundColor: '#76D57C',
-  },
-  heartWrap: {
-    position: 'absolute',
-    bottom: -4,
-    width: 240,
-    height: 205,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heart: {
-    width: 214,
-    height: 214,
-    backgroundColor: '#76D57C',
-    transform: [{ rotate: '45deg' }],
-    borderRadius: 36,
-    borderWidth: 4,
-    borderColor: '#E44EEA',
-    shadowColor: '#76D57C',
-    shadowOpacity: 0.38,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
+    width: 320,
+    height: 240,
+    maxWidth: '100%',
+    marginBottom: 18,
   },
   textWrap: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 26,
   },
   eyebrow: {
     fontSize: 12,
@@ -145,6 +117,33 @@ const styles = StyleSheet.create({
     color: '#CFD9E2',
     lineHeight: 26,
     maxWidth: 470,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 440,
+    marginBottom: 28,
+    gap: 10,
+  },
+  featureCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  featureIcon: {
+    fontSize: 22,
+    marginBottom: 6,
+  },
+  featureLabel: {
+    color: '#F5F7FA',
+    fontWeight: '700',
+    fontSize: 12,
   },
   button: {
     width: '100%',
