@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  View,
+  Alert,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  Alert,
-  StyleSheet,
+  View,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 import ServiceDetailScreen from "./ServiceDetailScreen";
@@ -25,14 +25,17 @@ export default function MainApp({
   const [loading, setLoading] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
 
+  const getServices = (userId: string) =>
+    supabase
+      .from("service_requests")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
   const fetchServices = async () => {
     if (!profile?.id) return;
 
-    const { data, error } = await supabase
-      .from("service_requests")
-      .select("*")
-      .eq("user_id", profile.id)
-      .order("created_at", { ascending: false });
+    const { data, error } = await getServices(profile.id);
 
     if (error) {
       Alert.alert("Error", error.message);
@@ -43,7 +46,24 @@ export default function MainApp({
   };
 
   useEffect(() => {
-    fetchServices();
+    if (!profile?.id) return;
+
+    let isCurrent = true;
+
+    getServices(profile.id).then(({ data, error }) => {
+      if (!isCurrent) return;
+
+      if (error) {
+        Alert.alert("Error", error.message);
+        return;
+      }
+
+      setServices(data ?? []);
+    });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [profile?.id]);
 
   const createService = async () => {
