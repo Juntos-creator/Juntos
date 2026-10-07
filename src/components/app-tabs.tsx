@@ -13,21 +13,31 @@ export default function AppTabs() {
       indicatorColor={colors.backgroundElement}
       labelStyle={{ selected: { color: colors.text } }}>
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Inicio</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tabIcons/home.png')}
           renderingMode="template"
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="prototype">
-        <NativeTabs.Trigger.Label>Acompañamiento</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon md="favorite" sf="heart.fill" />
+      <NativeTabs.Trigger name="explore">
+        <NativeTabs.Trigger.Label>Explorar</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="search" sf="magnifyingglass" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="main">
+        <NativeTabs.Trigger.Label>Solicitar</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="add_circle" sf="plus.circle.fill" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="companion">
         <NativeTabs.Trigger.Label>Acompañante</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon md="person" sf="person.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="auth">
+        <NativeTabs.Trigger.Label>Cuenta</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="account_circle" sf="person.crop.circle" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

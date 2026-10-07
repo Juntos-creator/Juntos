@@ -1,18 +1,18 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
+    Alert,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { supabase } from "../supabaseClient";
 
-export default function AuthScreen() {
-  const [email, setEmail] = useState("demo@juntos.com");
-  const [password, setPassword] = useState("123456");
-  const [fullName, setFullName] = useState("Usuario JUNTOS");
+export default function AuthScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const signIn = async () => {
@@ -29,6 +29,8 @@ export default function AuthScreen() {
       Alert.alert("Error", error.message);
       return;
     }
+
+    onAuthenticated();
   };
 
   const signUp = async () => {
@@ -51,7 +53,9 @@ export default function AuthScreen() {
       return;
     }
 
-    if (data.user) {
+    if (data.session) {
+      onAuthenticated();
+    } else if (data.user) {
       Alert.alert(
         "Cuenta creada",
         "Tu usuario fue registrado. Revisa tu correo si el sistema pide confirmación."

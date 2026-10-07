@@ -1,5 +1,5 @@
 import JuntosLogo from '@/components/juntos-logo';
-import { Link } from 'expo-router';
+import { Link, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -40,11 +40,19 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <Link href="/prototype" asChild>
+          <Link href={'/auth' as Href} asChild>
             <Pressable style={styles.button}>
-              <Text style={styles.buttonText}>Iniciar</Text>
+              <Text style={styles.buttonText}>Iniciar sesión o crear cuenta</Text>
             </Pressable>
           </Link>
+
+          <Link href="/explore" asChild>
+            <Pressable style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Explorar servicios</Text>
+            </Pressable>
+          </Link>
+
+          <Link href="/prototype" style={styles.demoLink}>Ver demostración</Link>
 
         </View>
       </ScrollView>
@@ -167,5 +175,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.8,
+  },
+  secondaryButton: {
+    width: '100%',
+    maxWidth: 440,
+    minHeight: 52,
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+    borderRadius: 12,
+  },
+  secondaryButtonText: {
+    color: '#F5F7FA',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  demoLink: {
+    marginTop: 18,
+    color: '#91E9B5',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

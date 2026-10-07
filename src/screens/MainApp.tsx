@@ -30,14 +30,20 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
 export default function MainApp({
   profile,
   onSignOut,
+  initialServiceType,
 }: {
   profile: any;
   onSignOut: () => void;
+  initialServiceType?: string;
 }) {
   const [services, setServices] = useState<any[]>([]);
   const [destination, setDestination] = useState("");
   const [notes, setNotes] = useState("");
-  const [serviceType, setServiceType] = useState("MEDICA");
+  const [serviceType, setServiceType] = useState(() =>
+    serviceOptions.some((option) => option.value === initialServiceType)
+      ? initialServiceType!
+      : "MEDICA",
+  );
   const [loading, setLoading] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
 

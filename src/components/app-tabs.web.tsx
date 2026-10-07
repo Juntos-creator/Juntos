@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router';
 import {
     TabList,
     TabListProps,
@@ -19,14 +20,20 @@ export default function AppTabs() {
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
+          <TabTrigger name="index" href="/" asChild>
             <TabButton>Inicio</TabButton>
           </TabTrigger>
-          <TabTrigger name="prototype" href="/prototype" asChild>
-            <TabButton>Acompañamiento</TabButton>
+          <TabTrigger name="explore" href="/explore" asChild>
+            <TabButton>Explorar</TabButton>
+          </TabTrigger>
+          <TabTrigger name="main" href="/main" asChild>
+            <TabButton>Solicitar</TabButton>
           </TabTrigger>
           <TabTrigger name="companion" href="/companion" asChild>
             <TabButton>Acompañante</TabButton>
+          </TabTrigger>
+          <TabTrigger name="auth" href={'/auth' as Href} asChild>
+            <TabButton>Cuenta</TabButton>
           </TabTrigger>
         </CustomTabList>
       </TabList>
