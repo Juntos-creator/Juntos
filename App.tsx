@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
     Alert,
     Linking,
@@ -14,6 +14,15 @@ import {
     View,
     ViewStyle,
 } from "react-native";
+import {
+    DemoCompanion,
+    DemoService,
+    getCompanionReservedDates,
+    getDemoServices,
+    initializeDemoServices,
+    subscribeDemoServices,
+    updateDemoServices,
+} from "./src/lib/demo-service-store";
 
 /*
 ==========================================================
@@ -135,23 +144,8 @@ type UserProfile = {
     relation: string;
   };
 };
-type Companion = {
-  id: string;
-  name: string;
-  role: string;
-  type: string;
-  rating: number;
-  services: number;
-  phone: string;
-  verified: boolean;
-  about: string;
-  specialties: string[];
-};
-type ServiceEvent = {
-  status: ServiceStatus;
-  text: string;
-  date: string;
-};
+type Companion = DemoCompanion;
+type Service = DemoService;
 type ServiceRequestInput = {
   type: ServiceTypeId;
   mode: ServiceMode;
@@ -160,25 +154,7 @@ type ServiceRequestInput = {
   time: string;
   notes: string;
   specialNeeds: string;
-};
-type Service = {
-  id: string;
-  userId: string;
-  type: ServiceTypeId;
-  mode: ServiceMode;
-  destination: string;
-  date: string;
-  time: string;
-  notes: string;
-  specialNeeds: string;
-  status: ServiceStatus;
-  companion: Companion | null;
-  pin: string;
-  createdAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
-  rating: number | null;
-  timeline: ServiceEvent[];
+  companionId: string;
 };
 
 type HeaderProps = { title: string; subtitle?: string; onBack?: Action };
@@ -197,6 +173,7 @@ type HomeScreenProps = {
 };
 type RequestScreenProps = {
   onBack: Action;
+  services: Service[];
   onSubmit: (serviceData: ServiceRequestInput) => void;
 };
 type TrackingScreenProps = {
@@ -215,6 +192,12 @@ type CompanionProfileScreenProps = {
   onBack: Action;
   onCall: Action;
   context?: "service" | "account";
+};
+type CompanionAccountScreenProps = {
+  services: Service[];
+  onAccept: (serviceId: string, companionId: string) => void;
+  onOpen: (service: Service) => void;
+  onCall: (companion: Companion) => void;
 };
 type HistoryScreenProps = {
   services: Service[];
@@ -259,6 +242,7 @@ export const DEMO_COMPANIONS = [
     services: 127,
     phone: "809-555-1001",
     verified: true,
+    distanceKm: 1.2,
     about: "Acompañamiento para compras, diligencias y actividades cotidianas. Este perfil contiene datos de demostración.",
     specialties: ["Diligencias", "Compras", "Acompañamiento no clínico"],
   },
@@ -271,6 +255,7 @@ export const DEMO_COMPANIONS = [
     services: 94,
     phone: "809-555-1002",
     verified: true,
+    distanceKm: 2.4,
     about: "Acompañamiento de demostración para citas y traslados asistenciales, dentro del alcance indicado para este servicio.",
     specialties: ["Citas médicas", "Traslados asistenciales", "Apoyo durante la visita"],
   },
@@ -283,6 +268,7 @@ export const DEMO_COMPANIONS = [
     services: 156,
     phone: "809-555-1003",
     verified: true,
+    distanceKm: 3.1,
     about: "Perfil de demostración para servicios de acompañamiento asistencial. La información real deberá provenir de la cuenta validada.",
     specialties: ["Acompañamiento asistencial", "Citas médicas", "Seguimiento del servicio"],
   },
@@ -307,7 +293,11 @@ const generateId = () => {
 const formatDate = (date: Date | string | null | undefined) => {
   if (!date) return "Pendiente";
 
-  const d = date instanceof Date ? date : new Date(date);
+  const d = date instanceof Date
+    ? date
+    : /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? new Date(`${date}T12:00:00`)
+      : new Date(date);
 
   return d.toLocaleDateString("es-DO", {
     day: "2-digit",
@@ -315,6 +305,13 @@ const formatDate = (date: Date | string | null | undefined) => {
     year: "numeric",
   });
 };
+
+const getDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const getTodayDateKey = () => getDateKey(new Date());
+
+const parseDateKey = (dateKey: string) => new Date(`${dateKey}T12:00:00`);
 
 const formatTime = (date: Date | string | null | undefined) => {
   if (!date) return "--:--";
@@ -442,7 +439,7 @@ function EmptyState({ icon = "📭", title, description }: {
 // APP PRINCIPAL
 // ========================================================
 
-export default function App() {
+export default function App({ serviceId }: { serviceId?: string } = {}) {
   // ------------------------------------------------------
   // USUARIO DEMO
   // ------------------------------------------------------
@@ -463,13 +460,27 @@ export default function App() {
   // ESTADOS
   // ------------------------------------------------------
 
-  const [screen, setScreen] = useState<Screen>("HOME");
+  const [screen, setScreen] = useState<Screen>(serviceId ? "TRACKING" : "HOME");
 
   const [role, setRole] = useState<Role>("USER");
 
-  const [services, setServices] = useState<Service[]>([]);
+  const services = useSyncExternalStore(
+    subscribeDemoServices,
+    getDemoServices,
+    getDemoServices,
+  );
 
-  const [currentServiceId, setCurrentServiceId] = useState<string | null>(null);
+  useEffect(() => {
+    void initializeDemoServices();
+  }, []);
+
+  const [currentServiceId, setCurrentServiceId] = useState<string | null>(serviceId ?? null);
+
+  useEffect(() => {
+    if (!serviceId) return;
+    setCurrentServiceId(serviceId);
+    setScreen("TRACKING");
+  }, [serviceId]);
 
   // ======================================================
   // SERVICIO ACTUAL
@@ -491,6 +502,8 @@ export default function App() {
     const newService: Service = {
       id,
       userId: user.id,
+      requesterName: user.name,
+      requesterDistanceKm: 2.4,
 
       type: serviceData.type,
       mode: serviceData.mode,
@@ -504,6 +517,7 @@ export default function App() {
 
       status: "PENDIENTE",
 
+      preferredCompanionId: serviceData.companionId,
       companion: null,
 
       pin,
@@ -524,7 +538,7 @@ export default function App() {
       ],
     };
 
-    setServices((prev) => [newService, ...prev]);
+    updateDemoServices((prev) => [newService, ...prev]);
 
     setCurrentServiceId(id);
 
@@ -550,14 +564,13 @@ export default function App() {
       return;
     }
 
-    setServices((prev) =>
+    updateDemoServices((prev) =>
       prev.map((service) => {
         if (service.id !== serviceId) return service;
 
         const companion =
-          service.mode === "ASISTENCIAL"
-            ? DEMO_COMPANIONS[1]
-            : DEMO_COMPANIONS[0];
+          DEMO_COMPANIONS.find((candidate) => candidate.id === service.preferredCompanionId) ??
+          (service.mode === "ASISTENCIAL" ? DEMO_COMPANIONS[1] : DEMO_COMPANIONS[0]);
 
         return {
           ...service,
@@ -607,7 +620,7 @@ export default function App() {
       return;
     }
 
-    setServices((prev) =>
+    updateDemoServices((prev) =>
       prev.map((item) => {
         if (item.id !== serviceId) return item;
 
@@ -650,7 +663,7 @@ export default function App() {
       return;
     }
 
-    setServices((prev) =>
+    updateDemoServices((prev) =>
       prev.map((service) => {
         if (service.id !== serviceId) return service;
 
@@ -703,7 +716,7 @@ export default function App() {
           style: "destructive",
 
           onPress: () => {
-            setServices((prev) =>
+            updateDemoServices((prev) =>
               prev.map((service) => {
                 if (service.id !== serviceId) return service;
 
@@ -743,7 +756,7 @@ export default function App() {
       return;
     }
 
-    setServices((prev) =>
+    updateDemoServices((prev) =>
       prev.map((service) => {
         if (service.id !== currentService.id) return service;
 
@@ -855,6 +868,7 @@ export default function App() {
         {screen === "REQUEST" && (
           <RequestScreen
             onBack={goHome}
+            services={services}
             onSubmit={createService}
           />
         )}
@@ -1178,12 +1192,117 @@ function Step({ number, title, description }: {
 // SOLICITAR
 // ========================================================
 
-function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
+function AvailabilityCalendar({
+  month,
+  onMonthChange,
+  reservedDates,
+  selectedDate,
+  onSelect,
+}: {
+  month: Date;
+  onMonthChange: (month: Date) => void;
+  reservedDates: Set<string>;
+  selectedDate?: string;
+  onSelect?: (date: string) => void;
+}) {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const today = getTodayDateKey();
+  const monthLabel = month.toLocaleDateString("es-DO", { month: "long", year: "numeric" });
+
+  return (
+    <View style={styles.calendarWrap}>
+      <View style={styles.calendarHeader}>
+        <TouchableOpacity
+          accessibilityLabel="Mes anterior"
+          onPress={() => onMonthChange(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+          style={styles.calendarArrow}
+        >
+          <Text style={styles.calendarArrowText}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.calendarMonth}>{monthLabel}</Text>
+        <TouchableOpacity
+          accessibilityLabel="Mes siguiente"
+          onPress={() => onMonthChange(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+          style={styles.calendarArrow}
+        >
+          <Text style={styles.calendarArrowText}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.calendarGrid}>
+        {["D", "L", "M", "X", "J", "V", "S"].map((weekday, index) => (
+          <View key={`${weekday}-${index}`} style={styles.calendarCell}>
+            <Text style={styles.calendarWeekday}>{weekday}</Text>
+          </View>
+        ))}
+        {Array.from({ length: firstDay }, (_, index) => (
+          <View key={`empty-${index}`} style={styles.calendarCell} />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, index) => {
+          const date = new Date(month.getFullYear(), month.getMonth(), index + 1);
+          const dateKey = getDateKey(date);
+          const isReserved = reservedDates.has(dateKey);
+          const isPast = dateKey < today;
+          const isSelected = selectedDate === dateKey;
+          const disabled = !onSelect || isReserved || isPast;
+
+          return (
+            <View key={dateKey} style={styles.calendarCell}>
+              <TouchableOpacity
+                accessibilityLabel={`${index + 1} ${monthLabel}${isReserved ? ", reservado" : ", disponible"}`}
+                accessibilityState={{ disabled, selected: isSelected }}
+                disabled={disabled}
+                onPress={() => onSelect?.(dateKey)}
+                style={[
+                  styles.calendarDay,
+                  isReserved && styles.calendarDayReserved,
+                  isPast && styles.calendarDayPast,
+                  isSelected && styles.calendarDaySelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.calendarDayText,
+                    isReserved && styles.calendarDayReservedText,
+                    isSelected && styles.calendarDaySelectedText,
+                  ]}
+                >
+                  {index + 1}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })}
+      </View>
+
+      <View style={styles.calendarLegend}>
+        <View style={styles.calendarLegendItem}>
+          <View style={[styles.calendarLegendDot, styles.calendarLegendAvailable]} />
+          <Text style={styles.calendarLegendText}>Disponible</Text>
+        </View>
+        <View style={styles.calendarLegendItem}>
+          <View style={[styles.calendarLegendDot, styles.calendarLegendReserved]} />
+          <Text style={styles.calendarLegendText}>Con servicio</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function RequestScreen({ onBack, services, onSubmit }: RequestScreenProps) {
   const [selectedType, setSelectedType] = useState<ServiceTypeId | null>(null);
 
   const [destination, setDestination] = useState("");
 
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(getTodayDateKey);
+
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+
+  const [selectedCompanionId, setSelectedCompanionId] = useState("CMP-002");
 
   const [time, setTime] = useState("");
 
@@ -1194,6 +1313,74 @@ function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
   const selectedService = SERVICE_TYPES.find(
     (item) => item.id === selectedType
   );
+  const availableCompanions = selectedService
+    ? DEMO_COMPANIONS.filter((item) => item.type === selectedService.mode)
+    : DEMO_COMPANIONS;
+  const selectedCompanion = DEMO_COMPANIONS.find((item) => item.id === selectedCompanionId);
+  const reservedDates = getCompanionReservedDates(
+    selectedCompanionId,
+    calendarMonth.getFullYear(),
+    calendarMonth.getMonth(),
+    services,
+  );
+
+  useEffect(() => {
+    if (date >= getTodayDateKey() && !reservedDates.has(date)) return;
+
+    for (let offset = 0; offset < 90; offset += 1) {
+      const candidate = new Date();
+      candidate.setDate(candidate.getDate() + offset);
+      const candidateKey = getDateKey(candidate);
+      const candidateReserved = getCompanionReservedDates(
+        selectedCompanionId,
+        candidate.getFullYear(),
+        candidate.getMonth(),
+        services,
+      );
+      if (!candidateReserved.has(candidateKey)) {
+        setDate(candidateKey);
+        setCalendarMonth(new Date(candidate.getFullYear(), candidate.getMonth(), 1));
+        return;
+      }
+    }
+  }, [date, selectedCompanionId, services]);
+
+  const chooseServiceType = (item: ServiceType) => {
+    setSelectedType(item.id);
+    if (!DEMO_COMPANIONS.some((companion) => companion.id === selectedCompanionId && companion.type === item.mode)) {
+      const defaultCompanion = DEMO_COMPANIONS.find((companion) => companion.type === item.mode);
+      if (defaultCompanion) setSelectedCompanionId(defaultCompanion.id);
+    }
+  };
+
+  const chooseCompanion = (companionId: string) => {
+    setSelectedCompanionId(companionId);
+    const selectedDateMonth = parseDateKey(date);
+    const currentDateIsReserved = getCompanionReservedDates(
+      companionId,
+      selectedDateMonth.getFullYear(),
+      selectedDateMonth.getMonth(),
+      services,
+    ).has(date);
+    if (currentDateIsReserved) {
+      for (let offset = 0; offset < 90; offset += 1) {
+        const nextAvailable = new Date();
+        nextAvailable.setDate(nextAvailable.getDate() + offset);
+        const key = getDateKey(nextAvailable);
+        const dates = getCompanionReservedDates(
+          companionId,
+          nextAvailable.getFullYear(),
+          nextAvailable.getMonth(),
+          services,
+        );
+        if (!dates.has(key)) {
+          setDate(key);
+          setCalendarMonth(new Date(nextAvailable.getFullYear(), nextAvailable.getMonth(), 1));
+          break;
+        }
+      }
+    }
+  };
 
   const submit = () => {
     if (!selectedService) {
@@ -1214,14 +1401,25 @@ function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
       return;
     }
 
+    if (!selectedCompanion || selectedCompanion.type !== selectedService.mode) {
+      Alert.alert("Selecciona un acompañante", "Elige a una persona compatible con el servicio.");
+      return;
+    }
+
+    if (reservedDates.has(date) || date < getTodayDateKey()) {
+      Alert.alert("Fecha no disponible", "Elige un día libre en el calendario.");
+      return;
+    }
+
     onSubmit({
       type: selectedService.id,
       mode: selectedService.mode,
       destination: destination.trim(),
-      date: date || formatDate(new Date()),
+      date,
       time: time || formatTime(new Date()),
       notes,
       specialNeeds,
+      companionId: selectedCompanionId,
     });
   };
 
@@ -1251,7 +1449,7 @@ function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
                 styles.serviceOption,
                 active && styles.serviceOptionActive,
               ]}
-              onPress={() => setSelectedType(item.id)}
+              onPress={() => chooseServiceType(item)}
             >
               <Text style={styles.serviceIcon}>
                 {item.icon}
@@ -1294,7 +1492,49 @@ function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
           );
         })}
 
-        <SectionTitle>2. Destino</SectionTitle>
+        <SectionTitle>2. Acompañantes cercanos</SectionTitle>
+
+        {availableCompanions.map((companion) => {
+          const active = selectedCompanionId === companion.id;
+
+          return (
+            <TouchableOpacity
+              key={companion.id}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              style={[styles.nearbyCompanion, active && styles.nearbyCompanionActive]}
+              onPress={() => chooseCompanion(companion.id)}
+            >
+              <View style={styles.nearbyAvatar}>
+                <Text style={styles.nearbyAvatarText}>{companion.name.charAt(0)}</Text>
+              </View>
+              <View style={styles.nearbyInfo}>
+                <Text style={styles.nearbyName}>{companion.name}</Text>
+                <Text style={styles.nearbyMeta}>{companion.role} · {companion.distanceKm.toFixed(1)} km</Text>
+                <Text style={styles.nearbyMeta}>⭐ {companion.rating.toFixed(1)} · {companion.services} servicios</Text>
+              </View>
+              <View style={[styles.radio, active && styles.radioActive]}>
+                {active && <View style={styles.radioInner} />}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        <SectionTitle>3. Elige un día disponible</SectionTitle>
+        <Card>
+          <Text style={styles.calendarSelectedDate}>
+            {selectedCompanion?.name}: {formatDate(date)}
+          </Text>
+          <AvailabilityCalendar
+            month={calendarMonth}
+            onMonthChange={setCalendarMonth}
+            reservedDates={reservedDates}
+            selectedDate={date}
+            onSelect={setDate}
+          />
+        </Card>
+
+        <SectionTitle>4. Destino</SectionTitle>
 
         <TextInput
           value={destination}
@@ -1304,15 +1544,7 @@ function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
           style={styles.input}
         />
 
-        <SectionTitle>3. Fecha y hora</SectionTitle>
-
-        <TextInput
-          value={date}
-          onChangeText={setDate}
-          placeholder="Ej. 15/10/2026"
-          placeholderTextColor={BRAND.muted}
-          style={styles.input}
-        />
+        <SectionTitle>5. Hora</SectionTitle>
 
         <TextInput
           value={time}
@@ -1322,7 +1554,7 @@ function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
           style={styles.input}
         />
 
-        <SectionTitle>4. Información adicional</SectionTitle>
+        <SectionTitle>6. Información adicional</SectionTitle>
 
         <TextInput
           value={notes}
@@ -1334,7 +1566,7 @@ function RequestScreen({ onBack, onSubmit }: RequestScreenProps) {
         />
 
         <SectionTitle>
-          5. Necesidades especiales
+          7. Necesidades especiales
         </SectionTitle>
 
         <TextInput
@@ -1559,18 +1791,20 @@ function TrackingScreen({
         ) : (
           <Card>
             <Text style={styles.cardTitle}>
-              Buscando acompañante
+              {service.preferredCompanionId
+                ? `Solicitud enviada a ${DEMO_COMPANIONS.find((item) => item.id === service.preferredCompanionId)?.name ?? "tu acompañante"}`
+                : "Buscando acompañante"}
             </Text>
 
             <Text style={styles.cardText}>
-              Mesa de Operaciones debe asignar un acompañante
-              compatible con el tipo de servicio.
+              {service.preferredCompanionId
+                ? "La persona elegida verá tu solicitud en su perfil y podrá aceptarla."
+                : "Mesa de Operaciones debe asignar un acompañante compatible con el tipo de servicio."}
             </Text>
 
-            <SecondaryButton
-              title="SIMULAR ASIGNACIÓN"
-              onPress={onAssign}
-            />
+            {!service.preferredCompanionId && (
+              <SecondaryButton title="SIMULAR ASIGNACIÓN" onPress={onAssign} />
+            )}
           </Card>
         )}
 
@@ -1816,6 +2050,135 @@ export function CompanionProfileScreen({
           onPress={onBack}
         />
         <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+export function CompanionAccountScreen({
+  services,
+  onAccept,
+  onOpen,
+  onCall,
+}: CompanionAccountScreenProps) {
+  const [selectedCompanionId, setSelectedCompanionId] = useState("CMP-001");
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const companion = DEMO_COMPANIONS.find((item) => item.id === selectedCompanionId) ?? DEMO_COMPANIONS[0];
+  const reservedDates = getCompanionReservedDates(
+    companion.id,
+    calendarMonth.getFullYear(),
+    calendarMonth.getMonth(),
+    services,
+  );
+  const nearbyRequests = services.filter((service) =>
+    service.status === "PENDIENTE" &&
+    service.preferredCompanionId === companion.id &&
+    service.mode === companion.type,
+  );
+  const assignedServices = services.filter((service) =>
+    service.companion?.id === companion.id &&
+    ["ASIGNADO", "EN_CURSO"].includes(service.status),
+  );
+
+  return (
+    <View style={styles.screen}>
+      <Header title="Perfil de acompañante" subtitle="Solicitudes y disponibilidad" />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle>Perfiles de demostración</SectionTitle>
+        <View style={styles.companionSwitcher}>
+          {DEMO_COMPANIONS.map((candidate) => {
+            const active = candidate.id === companion.id;
+            return (
+              <TouchableOpacity
+                key={candidate.id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                onPress={() => setSelectedCompanionId(candidate.id)}
+                style={[styles.companionSwitchItem, active && styles.companionSwitchItemActive]}
+              >
+                <Text style={[styles.companionSwitchName, active && styles.companionSwitchNameActive]}>
+                  {candidate.name.split(" ")[0]}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Card>
+          <View style={styles.profileHeader}>
+            <View style={styles.companionAvatarLarge}>
+              <Text style={styles.companionProfileInitial}>{companion.name.charAt(0)}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileName}>{companion.name}</Text>
+              <Text style={styles.cardText}>{companion.role}</Text>
+              <Text style={styles.rating}>⭐ {companion.rating.toFixed(1)} · {companion.services} servicios · {companion.distanceKm.toFixed(1)} km</Text>
+            </View>
+          </View>
+          <View style={styles.verifiedBox}>
+            <Text style={styles.verifiedText}>✓ Perfil verificado en esta demo</Text>
+          </View>
+          <Text style={[styles.cardText, { marginTop: 10 }]}>{companion.about}</Text>
+          <Text style={styles.companionDemoNote}>Datos de ejemplo; la identidad y disponibilidad reales deben validarse antes de producción.</Text>
+          <SecondaryButton title="LLAMAR A ESTE ACOMPAÑANTE" onPress={() => onCall(companion)} />
+        </Card>
+
+        <SectionTitle>Calendario de disponibilidad</SectionTitle>
+        <Card>
+          <AvailabilityCalendar
+            month={calendarMonth}
+            onMonthChange={setCalendarMonth}
+            reservedDates={reservedDates}
+          />
+        </Card>
+
+        <SectionTitle>Solicitudes cercanas</SectionTitle>
+        {nearbyRequests.length === 0 ? (
+          <EmptyState
+            icon="📍"
+            title="No hay solicitudes cercanas para este perfil"
+            description="Las solicitudes compatibles aparecerán aquí para que puedas aceptarlas."
+          />
+        ) : (
+          nearbyRequests.map((service) => (
+            <Card key={service.id}>
+              <View style={styles.operationsHeader}>
+                <Text style={styles.operationsId}>{service.id}</Text>
+                <Badge type="warning">NUEVA</Badge>
+              </View>
+              <Text style={styles.operationsTitle}>{service.requesterName} · {service.requesterDistanceKm.toFixed(1)} km</Text>
+              <Text style={styles.cardText}>{SERVICE_TYPES.find((item) => item.id === service.type)?.title} · {service.destination}</Text>
+              <Text style={styles.cardText}>📅 {formatDate(service.date)} · {service.time}</Text>
+              {service.notes ? <Text style={styles.cardText}>{service.notes}</Text> : null}
+              <PrimaryButton title="ACEPTAR SOLICITUD" onPress={() => onAccept(service.id, companion.id)} />
+            </Card>
+          ))
+        )}
+
+        <SectionTitle>Servicios aceptados</SectionTitle>
+        {assignedServices.length === 0 ? (
+          <EmptyState
+            icon="🗓️"
+            title="Todavía no tienes servicios aceptados"
+            description="Cuando aceptes una solicitud, la verás aquí y ese día quedará reservado."
+          />
+        ) : (
+          assignedServices.map((service) => (
+            <TouchableOpacity key={service.id} style={styles.historyCard} onPress={() => onOpen(service)}>
+              <Text style={styles.historyIcon}>🤝</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyTitle}>{service.requesterName} · {service.requesterDistanceKm.toFixed(1)} km</Text>
+                <Text style={styles.historyDestination}>{service.destination}</Text>
+                <Text style={styles.historyDate}>{formatDate(service.date)} · {service.time} · {service.id}</Text>
+              </View>
+              <Badge type="success">{service.status}</Badge>
+            </TouchableOpacity>
+          ))
+        )}
+        <View style={{ height: 35 }} />
       </ScrollView>
     </View>
   );
@@ -2963,6 +3326,179 @@ const styles = StyleSheet.create({
   // FORM
   // ------------------------------------------------------
 
+  nearbyCompanion: {
+    backgroundColor: BRAND.white,
+    borderWidth: 1,
+    borderColor: BRAND.border,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 9,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  nearbyCompanionActive: {
+    borderColor: BRAND.emerald,
+    backgroundColor: "#F0FBF7",
+  },
+
+  nearbyAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: BRAND.navy,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 11,
+  },
+
+  nearbyAvatarText: {
+    color: BRAND.white,
+    fontSize: 19,
+    fontWeight: "900",
+  },
+
+  nearbyInfo: {
+    flex: 1,
+  },
+
+  nearbyName: {
+    color: BRAND.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  nearbyMeta: {
+    color: BRAND.muted,
+    fontSize: 11,
+    marginTop: 3,
+  },
+
+  calendarSelectedDate: {
+    color: BRAND.emeraldDark,
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 10,
+    textTransform: "capitalize",
+  },
+
+  calendarWrap: {
+    width: "100%",
+  },
+
+  calendarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+
+  calendarArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: BRAND.bg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  calendarArrowText: {
+    color: BRAND.text,
+    fontSize: 24,
+    lineHeight: 28,
+  },
+
+  calendarMonth: {
+    color: BRAND.text,
+    fontSize: 15,
+    fontWeight: "800",
+    textTransform: "capitalize",
+  },
+
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+
+  calendarCell: {
+    width: "14.2857%",
+    aspectRatio: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  calendarWeekday: {
+    color: BRAND.muted,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  calendarDay: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#E8F7F2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  calendarDayReserved: {
+    backgroundColor: "#FCE7E7",
+  },
+
+  calendarDayPast: {
+    backgroundColor: "#F1F3F5",
+  },
+
+  calendarDaySelected: {
+    backgroundColor: BRAND.emerald,
+  },
+
+  calendarDayText: {
+    color: BRAND.emeraldDark,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  calendarDayReservedText: {
+    color: BRAND.danger,
+  },
+
+  calendarDaySelectedText: {
+    color: BRAND.white,
+  },
+
+  calendarLegend: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 12,
+  },
+
+  calendarLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  calendarLegendDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+
+  calendarLegendAvailable: {
+    backgroundColor: BRAND.emerald,
+  },
+
+  calendarLegendReserved: {
+    backgroundColor: BRAND.danger,
+  },
+
+  calendarLegendText: {
+    color: BRAND.muted,
+    fontSize: 10,
+  },
+
   serviceOption: {
     backgroundColor: BRAND.white,
     borderWidth: 1,
@@ -3160,6 +3696,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
+  },
+
+  companionSwitcher: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  companionSwitchItem: {
+    minHeight: 40,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: BRAND.border,
+    backgroundColor: BRAND.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  companionSwitchItemActive: {
+    borderColor: BRAND.emerald,
+    backgroundColor: BRAND.mint,
+  },
+
+  companionSwitchName: {
+    color: BRAND.muted,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  companionSwitchNameActive: {
+    color: BRAND.emeraldDark,
   },
 
   companionName: {

@@ -1,5 +1,8 @@
+import { useLocalSearchParams } from 'expo-router';
+
 import JuntosPrototype from '../../App';
 
 export default function PrototypeRoute() {
-  return <JuntosPrototype />;
+  const { serviceId } = useLocalSearchParams<{ serviceId?: string }>();
+  return <JuntosPrototype serviceId={serviceId} />;
 }
