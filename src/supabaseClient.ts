@@ -1,15 +1,14 @@
-import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+import 'react-native-url-polyfill/auto';
 
-// Usa las variables del archivo .env del proyecto activo.
-const supabaseUrl =
-  process.env.EXPO_PUBLIC_SUPABASE_URL ||
-  'https://sb_publishable_zitDgY_AycCCUS-QIl17sA_Tm3b6mDs.supabase.co';
-const supabaseAnonKey =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzamJ0cGJ3enlkaGxyZWR0cWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4OTYyNjAsImV4cCI6MjEwNjQ3MjI2MH0.HS2ptlso6Pcs4mG8U1vDMT9Npk1htewGrzVEEJr_CCs';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Faltan EXPO_PUBLIC_SUPABASE_URL o EXPO_PUBLIC_SUPABASE_ANON_KEY en .env.');
+}
 
 const authStorage = {
   getItem: (key: string) => {
