@@ -20,9 +20,14 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="main">
-        <NativeTabs.Trigger.Label>Servicios</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon md="assignment" sf="list.bullet.clipboard" />
+      <NativeTabs.Trigger name="prototype">
+        <NativeTabs.Trigger.Label>Acompañamiento</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="favorite" sf="heart.fill" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="companion">
+        <NativeTabs.Trigger.Label>Acompañante</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon md="person" sf="person.fill" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

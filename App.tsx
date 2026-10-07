@@ -114,7 +114,8 @@ type Screen =
   | "PROFILE"
   | "RATING"
   | "OPERATIONS"
-  | "COMPANION";
+  | "COMPANION"
+  | "COMPANION_PROFILE";
 type ServiceStatus =
   | "PENDIENTE"
   | "ASIGNADO"
@@ -143,6 +144,8 @@ type Companion = {
   services: number;
   phone: string;
   verified: boolean;
+  about: string;
+  specialties: string[];
 };
 type ServiceEvent = {
   status: ServiceStatus;
@@ -205,6 +208,13 @@ type TrackingScreenProps = {
   onCancel: Action;
   onCall: Action;
   onSOS: Action;
+  onViewProfile: Action;
+};
+type CompanionProfileScreenProps = {
+  companion: Companion | null;
+  onBack: Action;
+  onCall: Action;
+  context?: "service" | "account";
 };
 type HistoryScreenProps = {
   services: Service[];
@@ -239,7 +249,7 @@ type BottomNavigationProps = {
   onCompanion: Action;
 };
 
-const DEMO_COMPANIONS = [
+export const DEMO_COMPANIONS = [
   {
     id: "CMP-001",
     name: "Ana Martínez",
@@ -249,6 +259,8 @@ const DEMO_COMPANIONS = [
     services: 127,
     phone: "809-555-1001",
     verified: true,
+    about: "Acompañamiento para compras, diligencias y actividades cotidianas. Este perfil contiene datos de demostración.",
+    specialties: ["Diligencias", "Compras", "Acompañamiento no clínico"],
   },
   {
     id: "CMP-002",
@@ -259,6 +271,8 @@ const DEMO_COMPANIONS = [
     services: 94,
     phone: "809-555-1002",
     verified: true,
+    about: "Acompañamiento de demostración para citas y traslados asistenciales, dentro del alcance indicado para este servicio.",
+    specialties: ["Citas médicas", "Traslados asistenciales", "Apoyo durante la visita"],
   },
   {
     id: "CMP-003",
@@ -269,6 +283,8 @@ const DEMO_COMPANIONS = [
     services: 156,
     phone: "809-555-1003",
     verified: true,
+    about: "Perfil de demostración para servicios de acompañamiento asistencial. La información real deberá provenir de la cuenta validada.",
+    specialties: ["Acompañamiento asistencial", "Citas médicas", "Seguimiento del servicio"],
   },
 ];
 
@@ -843,6 +859,14 @@ export default function App() {
           />
         )}
 
+        {screen === "COMPANION_PROFILE" && (
+          <CompanionProfileScreen
+            companion={currentService?.companion ?? null}
+            onBack={() => setScreen("TRACKING")}
+            onCall={callCompanion}
+          />
+        )}
+
         {screen === "TRACKING" && (
           <TrackingScreen
             service={currentService}
@@ -865,6 +889,7 @@ export default function App() {
             }}
             onCall={callCompanion}
             onSOS={callEmergency}
+            onViewProfile={() => setScreen("COMPANION_PROFILE")}
           />
         )}
 
@@ -1367,6 +1392,7 @@ function TrackingScreen({
   onCancel,
   onCall,
   onSOS,
+  onViewProfile,
 }: TrackingScreenProps) {
   const [pin, setPin] = useState("");
 
@@ -1522,6 +1548,13 @@ function TrackingScreen({
                 ✓ Acompañante verificada
               </Text>
             </View>
+
+            {service.status === "ASIGNADO" && (
+              <SecondaryButton
+                title="VER PERFIL ANTES DEL CHECK-IN"
+                onPress={onViewProfile}
+              />
+            )}
           </Card>
         ) : (
           <Card>
@@ -1682,6 +1715,111 @@ function TrackingScreen({
 // ========================================================
 // TIMELINE ITEM
 // ========================================================
+
+export function CompanionProfileScreen({
+  companion,
+  onBack,
+  onCall,
+  context = "service",
+}: CompanionProfileScreenProps) {
+  if (!companion) {
+    return (
+      <View style={styles.screen}>
+        <Header title="Perfil del acompañante" onBack={onBack} />
+        <EmptyState
+          icon="👤"
+          title="Aún no hay acompañante asignado"
+          description="El perfil aparecerá aquí cuando operaciones asigne a una persona."
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <Header
+        title="Perfil del acompañante"
+        subtitle={context === "service" ? "Asignado a tu servicio" : "Perfil de demostración"}
+        onBack={onBack}
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Card>
+          <View style={styles.profileHeader}>
+            <View style={styles.companionProfileAvatar}>
+              <Text style={styles.companionProfileInitial}>
+                {companion.name.charAt(0)}
+              </Text>
+            </View>
+
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileName}>{companion.name}</Text>
+              <Text style={styles.cardText}>{companion.role}</Text>
+              <Text style={styles.rating}>
+                ⭐ {companion.rating.toFixed(1)} · {companion.services} servicios
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.verifiedBox}>
+            <Text style={styles.verifiedText}>
+              {companion.verified
+                ? "✓ Verificación registrada en esta demo"
+                : "Verificación pendiente"}
+            </Text>
+          </View>
+
+          <Text style={styles.companionDemoNote}>
+            Perfil de demostración. La identidad y los datos reales deben confirmarse en la app.
+          </Text>
+        </Card>
+
+        <SectionTitle>Sobre el acompañamiento</SectionTitle>
+        <Card>
+          <Text style={styles.cardText}>{companion.about}</Text>
+        </Card>
+
+        <SectionTitle>Áreas de apoyo</SectionTitle>
+        <Card>
+          <View style={styles.companionSpecialties}>
+            {companion.specialties.map((specialty) => (
+              <View key={specialty} style={styles.companionSpecialtyRow}>
+                <View style={styles.companionSpecialtyDot} />
+                <Text style={styles.cardText}>{specialty}</Text>
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        <SectionTitle>Contacto</SectionTitle>
+        <Card>
+          <ProfileRow label="Teléfono" value={companion.phone} />
+          <SecondaryButton title="LLAMAR AL ACOMPAÑANTE" onPress={onCall} />
+        </Card>
+
+        <Card style={styles.noticeCard}>
+          <Text style={styles.noticeTitle}>
+            {context === "service" ? "Antes de iniciar" : "Cuenta de acompañante"}
+          </Text>
+          <Text style={styles.noticeText}>
+            {context === "service"
+              ? "Revisa este perfil y comparte el PIN solo cuando la persona asignada haya llegado."
+              : "Esta ficha contiene datos de ejemplo. La edición y verificación del perfil se conectarán a la cuenta real."}
+          </Text>
+        </Card>
+
+        <PrimaryButton
+          title={context === "service" ? "VOLVER AL CHECK-IN" : "VOLVER A ACOMPAÑAMIENTO"}
+          onPress={onBack}
+        />
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
 
 function TimelineItem({
   title,
@@ -2328,7 +2466,8 @@ function BottomNavigation({
   if (
     screen === "RATING" ||
     screen === "REQUEST" ||
-    screen === "TRACKING"
+    screen === "TRACKING" ||
+    screen === "COMPANION_PROFILE"
   ) {
     return null;
   }
@@ -3055,6 +3194,46 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     padding: 9,
     marginTop: 12,
+  },
+
+  companionProfileAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: BRAND.navy,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+
+  companionProfileInitial: {
+    color: BRAND.white,
+    fontSize: 28,
+    fontWeight: "900",
+  },
+
+  companionDemoNote: {
+    color: BRAND.muted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 10,
+  },
+
+  companionSpecialties: {
+    gap: 10,
+  },
+
+  companionSpecialtyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  companionSpecialtyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: BRAND.emerald,
   },
 
   verifiedText: {

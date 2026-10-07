@@ -40,11 +40,12 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <Link href="/main" asChild>
+          <Link href="/prototype" asChild>
             <Pressable style={styles.button}>
               <Text style={styles.buttonText}>Iniciar</Text>
             </Pressable>
           </Link>
+
         </View>
       </ScrollView>
     </SafeAreaView>
